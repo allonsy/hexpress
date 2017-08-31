@@ -5,9 +5,10 @@ import qualified Data.ByteString.Char8 as SB
 import qualified Data.Text as TXT
 import Hex.Types
 import Hex.Request
+import Hex.Server
 import Data.Hashable
 import Network.HTTP.Types.URI
-
+import Network.HTTP.Types.Status
 data PathTree a b = PathTree {
   leaf :: HM.HashMap SB.ByteString (a -> Server b),
   branch :: HM.HashMap TXT.Text (PathTree a b)
@@ -63,6 +64,9 @@ insert (meth,(p:ps)) f pt = pt {branch = HM.alter insertHelper p (branch pt)} wh
 
 lookup :: (SB.ByteString, [TXT.Text]) -> PathTree a b -> Maybe (a -> Server b)
 lookup (meth, []) pt = HM.lookup meth (leaf pt)
+lookup (meth, (x:xs)) pt = do
+  nextLevel <- HM.lookup x (branch pt)
+  Hex.Middleware.Router.lookup (meth, xs) nextLevel
 
 
 populate :: [ ((Method, [TXT.Text]), (a -> Server b)) ] -> PathTree a b
@@ -78,5 +82,13 @@ router rts = routeHelper where
     meth <- getMethod
     path <- getPath
     let handler = case Hex.Middleware.Router.lookup (meth, path) handlerMap of Just hand -> hand
-                                                                               Nothing   -> undefined
+                                                                               Nothing   -> notFound
     handler arg
+
+notFound :: a -> Server b
+notFound _ = do
+  setStatus status404
+  end
+
+standaloneRouter :: [(Method, String, Server a)] -> Server a
+standaloneRouter rts = (router $ map (\(meth, rt, handler) -> (meth, rt, \() -> handler)) rts) ()

@@ -17,14 +17,15 @@ import Control.Monad.IO.Class
 application req respond = respond $
   responseLBS status200 [(hContentType, SB.pack "text/plain")] (LB.pack "Hello World")
 
-server :: Server ()
-server = do
+sendHello :: Server ()
+sendHello = do
   sendString "hello, world!"
-  debugLog "served hello to client"
-  sendString "wait!"
-  debugLog "served second to client"
+
+sendMessage :: Server ()
+sendMessage = do
+  sendString "New page!"
 
 main :: IO ()
 main = do
-  app <- serverToApp server
+  app <- serverToApp $ standaloneRouter [(GET, "/", sendHello), (GET, "/newpage/holding/set", sendMessage)]
   run 3000 app

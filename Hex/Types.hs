@@ -61,4 +61,4 @@ serverToApp serv = return $ \request resp -> do
   let st = runMaybeT serv -- ServerIO type
   endState <- execStateT st (ServerState request LB.empty status200 [])
   let responseString = toSend endState
-  resp $ WAI.responseLBS status200 [] responseString
+  resp $ WAI.responseLBS (responseStatus endState) [] responseString
