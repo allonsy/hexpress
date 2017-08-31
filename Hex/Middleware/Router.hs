@@ -1,4 +1,8 @@
-module Hex.Middleware.Router where
+module Hex.Middleware.Router (
+Method(..)
+, router
+, standaloneRouter
+) where
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.ByteString.Char8 as SB
@@ -88,6 +92,11 @@ router rts = routeHelper where
 notFound :: a -> Server b
 notFound _ = do
   setStatus status404
+  end
+
+notAllowed :: a -> Server b
+notAllowed _ = do
+  setStatus status405
   end
 
 standaloneRouter :: [(Method, String, Server a)] -> Server a

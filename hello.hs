@@ -25,7 +25,17 @@ sendMessage :: Server ()
 sendMessage = do
   sendString "New page!"
 
+
+
+routes :: Server () -> [(Method, String, Server ())]
+routes cachedFile = [
+  (GET, "/", sendHello),
+  (GET, "/newpage/holding/set", sendMessage),
+  (GET, "/source", cachedFile)
+  ]
+
 main :: IO ()
 main = do
-  app <- serverToApp $ standaloneRouter [(GET, "/", sendHello), (GET, "/newpage/holding/set", sendMessage)]
+  servFile <- staticFileCached "hello.hs" (SB.pack "text/plain")
+  app <- serverToApp $ standaloneRouter (routes servFile)
   run 3000 app

@@ -1,7 +1,7 @@
 module Hex.Types
 ( Server
 , Middleware
-, standalone
+, passthrough
 , serverToApp
 , addHeader
 , sendByteString
@@ -30,8 +30,8 @@ type ServerIO = StateT ServerState IO
 type Server = MaybeT ServerIO
 type Middleware a b = a -> Server b
 
-standalone :: Server a -> Middleware () a
-standalone srv = \_ -> srv
+passthrough :: Server a -> (b -> Server b)
+passthrough srv = \val -> srv >> return val
 
 addHeader :: (HeaderName, SB.ByteString) -> Server ()
 addHeader hd = do

@@ -8,6 +8,7 @@ import Data.Text
 import Data.Vault.Lazy
 import Data.ByteString.Lazy.Char8 as LB
 import Data.ByteString.Char8 as SB
+import Data.Aeson as Aeson
 
 getQueryString :: Server Query
 getQueryString = do
@@ -43,3 +44,11 @@ getBodyStrict :: Server LB.ByteString
 getBodyStrict = do
   req <- getRequest
   performIO $ strictRequestBody req
+
+getJSONObj :: Server (Maybe Aeson.Value)
+getJSONObj = getJSON
+
+getJSON :: FromJSON a => Server (Maybe a)
+getJSON = do
+  body <- getBodyLazy
+  return $ Aeson.decode body
