@@ -1,39 +1,20 @@
 module Main where
 
-import Network.Wai
-import Network.HTTP.Types (status200)
-import Network.Wai.Handler.Warp (run)
-import Data.ByteString.Lazy.Char8 as LB
-import Data.ByteString.Char8 as SB
-import Network.HTTP.Types.Header
 import Hex.Types
 import Hex.Server
-import Hex.Request
 import Hex.Middleware.Router
 
-import Control.Concurrent
-import Control.Monad.IO.Class
-
-application req respond = respond $
-  responseLBS status200 [(hContentType, SB.pack "text/plain")] (LB.pack "Hello World")
 
 sendHello :: Server ()
-sendHello = do
-  sendString "hello, world!"
+sendHello = sendString "hello, World!"
 
-sendMessage :: Server ()
-sendMessage = do
-  sendString "New page!"
-
-
-
-routes :: Server () -> [(Method, String, Server ())]
-routes cachedFile = [
-  (GET, "/*", staticDir "/static/" ".")
+routes :: [(Method, String, Server ())]
+routes = [
+  (GET, "/", sendHello),
+  (GET, "/static/*", staticDir "/static/" ".")
   ]
 
 main :: IO ()
 main = do
-  servFile <- staticFileCached "hello.hs" (SB.pack "text/plain")
-  app <- serverToApp $ standaloneRouter (routes servFile)
+  let app = standaloneRouter routes
   run 3000 app

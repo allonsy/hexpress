@@ -2,11 +2,16 @@ module Hex.Server
 ( addCustomHeader
 , setMimeType
 , sendString
+, sendJSON
+, sendJSONLiteral
 , end
 , debugLog
 , staticFile
 , staticFileCached
 , staticDir
+, run
+, runEnv
+, runSettings
 ) where
 
 import Hex.Types
@@ -22,6 +27,7 @@ import Data.Aeson as Aeson
 import Data.Text as TXT
 import Network.HTTP.Types.URI
 import Network.Mime
+import qualified Network.Wai.Handler.Warp as WAI
 import System.FilePath
 import Data.Maybe
 import Control.Exception (catch, IOException)
@@ -33,8 +39,8 @@ setMimeType :: SB.ByteString -> Server ()
 setMimeType mtype = do
   addHeader (hContentType, mtype)
 
-sendJSONObj :: Aeson.Value -> Server ()
-sendJSONObj = sendJSON
+sendJSONLiteral :: Aeson.Value -> Server ()
+sendJSONLiteral = sendJSON
 
 sendJSON :: ToJSON a => a -> Server ()
 sendJSON obj = do
@@ -99,3 +105,18 @@ notFound :: a -> Server b
 notFound _ = do
   setStatus status404
   end
+
+run :: Int -> Server () -> IO ()
+run port srv = do
+  app <- serverToApp srv
+  WAI.run port app
+
+runEnv :: Int -> Server () -> IO ()
+runEnv port srv = do
+  app <- serverToApp srv
+  WAI.runEnv port app
+
+runSettings :: WAI.Settings -> Server () -> IO ()
+runSettings settings srv = do
+  app <- serverToApp srv
+  WAI.runSettings settings app

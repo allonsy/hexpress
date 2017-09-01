@@ -19,10 +19,11 @@ import Network.HTTP.Types.Status
 import Network.HTTP.Types.Header
 import Control.Monad.State.Class as ST
 import Control.Monad.IO.Class
+import Data.Binary.Builder as Builder
 
 data ServerState = ServerState {
   req :: WAI.Request,
-  toSend :: LB.ByteString,
+  toSend :: Builder,
   responseStatus :: Status,
   headers :: [Header]
 }
@@ -44,7 +45,8 @@ addHeader hd = do
 sendByteString :: LB.ByteString -> Server ()
 sendByteString str = do
   st <- ST.get
-  let newSt = st {toSend=LB.append (toSend st) str}
+  let newStr = Builder.fromLazyByteString str
+  let newSt = st {toSend=Builder.append (toSend st) newStr}
   ST.put newSt
 
 setStatus :: Status -> Server ()
@@ -64,6 +66,6 @@ performIO ioact = liftIO ioact
 serverToApp :: Server () -> IO WAI.Application
 serverToApp serv = return $ \request resp -> do
   let st = runMaybeT serv -- ServerIO type
-  endState <- execStateT st (ServerState request LB.empty status200 [])
-  let responseString = toSend endState
-  resp $ WAI.responseLBS (responseStatus endState) [] responseString
+  endState <- execStateT st (ServerState request Builder.empty status200 [])
+  let responseString = Builder.toLazyByteString $ toSend endState
+  resp $ WAI.responseLBS (responseStatus endState) (headers endState) responseString
