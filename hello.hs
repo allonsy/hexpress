@@ -1,8 +1,8 @@
 module Main where
 
-import Hex.Types
-import Hex.Server
-import Hex.Middleware.Router
+import Network.Hexpress.Types
+import Network.Hexpress.Server
+import Network.Hexpress.Middleware.Router
 
 
 sendHello :: Server ()

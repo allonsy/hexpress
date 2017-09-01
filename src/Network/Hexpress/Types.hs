@@ -1,4 +1,4 @@
-module Hex.Types
+module Network.Hexpress.Types
 ( Server
 , Middleware
 , passthrough

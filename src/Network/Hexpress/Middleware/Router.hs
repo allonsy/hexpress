@@ -1,4 +1,4 @@
-module Hex.Middleware.Router (
+module Network.Hexpress.Middleware.Router (
 Method(..)
 , router
 , standaloneRouter
@@ -6,9 +6,9 @@ Method(..)
 
 import qualified Data.ByteString.Char8 as SB
 import qualified Data.Text as TXT
-import Hex.Types
-import Hex.Request
-import Hex.Server
+import Network.Hexpress.Types
+import Network.Hexpress.Request
+import Network.Hexpress.Server
 import Data.Hashable
 import Network.HTTP.Types.URI
 import Network.HTTP.Types.Status

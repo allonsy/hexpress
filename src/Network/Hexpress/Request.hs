@@ -1,4 +1,4 @@
-module Hex.Request where
+module Network.Hexpress.Request where
 
 import Network.Wai
 import Network.HTTP.Types

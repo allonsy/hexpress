@@ -1,4 +1,4 @@
-module Hex.Server
+module Network.Hexpress.Server
 ( addCustomHeader
 , setMimeType
 , sendString
@@ -14,8 +14,8 @@ module Hex.Server
 , runSettings
 ) where
 
-import Hex.Types
-import Hex.Request
+import Network.Hexpress.Types
+import Network.Hexpress.Request
 import Data.CaseInsensitive as CI
 import Network.HTTP.Types.Status
 import Network.HTTP.Types.Header
