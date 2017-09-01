@@ -29,9 +29,7 @@ sendMessage = do
 
 routes :: Server () -> [(Method, String, Server ())]
 routes cachedFile = [
-  (GET, "/*", sendHello),
-  (GET, "/newpage/holding/set", sendMessage),
-  (GET, "/source/:hello", cachedFile)
+  (GET, "/*", staticDir "/" ".")
   ]
 
 main :: IO ()
