@@ -78,6 +78,7 @@ getfname :: [TXT.Text] -> [TXT.Text] -> Maybe [TXT.Text]
 getfname [] path = Just path
 getfname (x:xs) [] = Nothing
 getfname (x:xs) (y:ys)
+  | xs == [] && x == TXT.empty = Just (y:ys)
   | x == y = getfname xs ys
   | otherwise = Nothing
 
