@@ -4,12 +4,12 @@ module Hex.Server
 , sendString
 , end
 , debugLog
-, performIO
 , staticFile
 , staticFileCached
 ) where
 
 import Hex.Types
+import Hex.Request
 import Data.CaseInsensitive as CI
 import Network.HTTP.Types.Status
 import Network.HTTP.Types.Header
@@ -18,6 +18,11 @@ import Data.ByteString.Char8 as SB
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Maybe
 import Data.Aeson as Aeson
+import Data.Text as TXT
+import Network.HTTP.Types.URI
+import Network.Mime
+import System.FilePath
+import Data.Maybe
 
 addCustomHeader :: (SB.ByteString, SB.ByteString) -> Server ()
 addCustomHeader (name, contents) = addHeader (CI.mk name, contents)
@@ -45,8 +50,8 @@ end = MaybeT (return Nothing)
 debugLog :: String -> Server ()
 debugLog str = liftIO $ Prelude.putStrLn str
 
-performIO :: IO a -> Server a
-performIO ioact = liftIO ioact
+stringToPath :: String -> [TXT.Text]
+stringToPath str = decodePathSegments $ SB.pack str
 
 staticFile :: String -> SB.ByteString -> Server ()
 staticFile fname mime = do
@@ -62,3 +67,23 @@ staticFileCached fname mime = do
              setStatus status200 >>
              sendByteString contents
   return serv
+
+getfname :: [TXT.Text] -> [TXT.Text] -> Maybe [TXT.Text]
+getfname [] path = Just path
+getfname (x:xs) [] = Nothing
+getfname (x:xs) (y:ys)
+  | x == y = getfname xs ys
+  | otherwise = Nothing
+
+staticDir :: String -> String -> Server ()
+staticDir prefix location = staticDirHelper where
+  prefixPath = stringToPath prefix
+  locationPath = stringToPath location
+  staticDirHelper = do
+    path <- getPath
+    let localname = getfname prefixPath path
+    if localname == Nothing then end
+    else do
+      let fname = joinPath $ Prelude.map show (locationPath ++ fromJust localname)
+      let mtype = defaultMimeLookup (TXT.pack fname)
+      staticFile fname mtype

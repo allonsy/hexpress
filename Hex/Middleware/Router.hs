@@ -4,7 +4,6 @@ Method(..)
 , standaloneRouter
 ) where
 
-import qualified Data.HashMap.Strict as HM
 import qualified Data.ByteString.Char8 as SB
 import qualified Data.Text as TXT
 import Hex.Types
@@ -13,10 +12,6 @@ import Hex.Server
 import Data.Hashable
 import Network.HTTP.Types.URI
 import Network.HTTP.Types.Status
-data PathTree a b = PathTree {
-  leaf :: HM.HashMap SB.ByteString (a -> Server b),
-  branch :: HM.HashMap TXT.Text (PathTree a b)
-}
 
 data Method = GET
   | HEAD
@@ -54,40 +49,78 @@ stringToMethod "TRACE" = TRACE
 instance Hashable Method where
   hashWithSalt n m = hashWithSalt n (methodToString m)
 
+emptyText :: TXT.Text
+emptyText = TXT.pack ""
+
+starText :: TXT.Text
+starText = TXT.pack "*"
+
+isColon :: TXT.Text -> Bool
+isColon str = TXT.head str == ':'
+
 byteStringToMethod :: SB.ByteString -> Method
 byteStringToMethod bs = stringToMethod $ SB.unpack bs
-
-empty :: PathTree a b
-empty = PathTree HM.empty HM.empty
-
-insert :: (Method,[TXT.Text]) -> (a -> Server b) -> PathTree a b -> PathTree a b
-insert (meth,[]) f pt = pt {leaf=HM.insert (SB.pack (methodToString meth)) f (leaf pt)}
-insert (meth,(p:ps)) f pt = pt {branch = HM.alter insertHelper p (branch pt)} where
-  insertHelper Nothing = Just $ insert (meth,ps) f empty
-  insertHelper (Just subPT) = Just $ insert (meth, ps) f subPT
-
-lookup :: (SB.ByteString, [TXT.Text]) -> PathTree a b -> Maybe (a -> Server b)
-lookup (meth, []) pt = HM.lookup meth (leaf pt)
-lookup (meth, (x:xs)) pt = do
-  nextLevel <- HM.lookup x (branch pt)
-  Hex.Middleware.Router.lookup (meth, xs) nextLevel
-
-
-populate :: [ ((Method, [TXT.Text]), (a -> Server b)) ] -> PathTree a b
-populate = foldr (\(newPath, func) tr -> insert newPath func tr) empty
 
 stringToPath :: String -> [TXT.Text]
 stringToPath str = decodePathSegments $ SB.pack str
 
+type Route a b = (Method, [TXT.Text], (a -> Server b))
+
+extractRtPath :: Route a b -> [TXT.Text]
+extractRtPath (_, p, _) = p
+
+isEmpty :: [a] -> Bool
+isEmpty [] = True
+isEmpty _ = False
+
+isMatch :: [TXT.Text] -> Route a b -> Bool
+isMatch [] (_, [], _) = True
+isMatch [] (_,(x:xs),_) = False
+isMatch (y:ys) (_, [], _) = False
+isMatch (y:ys) (m,(x:xs),fn)
+  | x == emptyText || x == starText = True
+  | isColon x = isMatch ys (m,xs,fn)
+  | x == y = isMatch ys (m,xs,fn)
+  | otherwise = False
+
+isMethodMatch :: Method -> Route a b -> Bool
+isMethodMatch targetMeth (meth, _, _) = meth == targetMeth
+
+-- assumes non empty
+getLast :: [a] -> a
+getLast [x] = x
+getLast (x:xs) = getLast xs
+
+isExact :: Route a b -> Bool
+isExact (_, [], _) = True
+isExact (m, (x:xs), fn)
+  | x == starText || x == emptyText || isColon x = False
+  | otherwise = isExact (m, xs, fn)
+
+findLongest :: Int -> [Route a b] -> [Route a b] -> Route a b
+findLongest largest ls [] = getLast ls
+findLongest largest ls (rt@(m,x,fn):xs)
+  | isExact rt = rt
+  | length x > largest = findLongest (length x) [rt] xs
+  | length x == largest = findLongest largest (rt:ls) xs
+  | otherwise = findLongest largest ls xs
+
 router :: [(Method, String, a -> Server b)] -> (a -> Server b)
-router rts = routeHelper where
-  handlerMap = populate $ map (\(meth, str, handler) -> ((meth, stringToPath str), handler)) rts
-  routeHelper arg = do
-    meth <- getMethod
+router rts arg = routerHelper where
+  preprocessed = map (\(m, str, fn) -> (m, stringToPath str, fn)) rts
+  routerHelper = do
     path <- getPath
-    let handler = case Hex.Middleware.Router.lookup (meth, path) handlerMap of Just hand -> hand
-                                                                               Nothing   -> notFound
-    handler arg
+    let matches = filter (isMatch path) preprocessed
+    if isEmpty matches then notFound arg
+    else do
+      meth <- getMethod
+      let targetMeth = byteStringToMethod meth
+      let methMatches = filter (isMethodMatch targetMeth) matches
+      if isEmpty methMatches then notAllowed arg
+      else do
+        let (_, _, fn) = findLongest (-1) [] methMatches
+        fn arg
+
 
 notFound :: a -> Server b
 notFound _ = do

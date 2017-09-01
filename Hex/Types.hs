@@ -7,6 +7,7 @@ module Hex.Types
 , sendByteString
 , setStatus
 , getRequest
+, performIO
 ) where
 
 import qualified Network.Wai as WAI
@@ -17,6 +18,7 @@ import Data.ByteString.Char8 as SB
 import Network.HTTP.Types.Status
 import Network.HTTP.Types.Header
 import Control.Monad.State.Class as ST
+import Control.Monad.IO.Class
 
 data ServerState = ServerState {
   req :: WAI.Request,
@@ -55,6 +57,9 @@ getRequest :: Server WAI.Request
 getRequest = do
   st <- ST.get
   return $ req st
+
+performIO :: IO a -> Server a
+performIO ioact = liftIO ioact
 
 serverToApp :: Server () -> IO WAI.Application
 serverToApp serv = return $ \request resp -> do

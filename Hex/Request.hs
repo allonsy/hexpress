@@ -3,7 +3,6 @@ module Hex.Request where
 import Network.Wai
 import Network.HTTP.Types
 import Hex.Types
-import Hex.Server
 import Data.Text
 import Data.Vault.Lazy
 import Data.ByteString.Lazy.Char8 as LB
