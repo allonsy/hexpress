@@ -9,7 +9,6 @@ import qualified Data.Text as TXT
 import Network.Hexpress.Types
 import Network.Hexpress.Request
 import Network.Hexpress.Server
-import Data.Hashable
 import Network.HTTP.Types.URI
 import Network.HTTP.Types.Status
 
@@ -45,9 +44,6 @@ stringToMethod "HEAD" = HEAD
 stringToMethod "CONNECT" = CONNECT
 stringToMethod "OPTIONS" = OPTIONS
 stringToMethod "TRACE" = TRACE
-
-instance Hashable Method where
-  hashWithSalt n m = hashWithSalt n (methodToString m)
 
 emptyText :: TXT.Text
 emptyText = TXT.pack ""
