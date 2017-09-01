@@ -3,8 +3,8 @@
 
 name:                hexpress
 version:             0.1.0.0
-synopsis:            An express-like http framework meant to make writing web servers easy and quick. See the github readme for more info.
--- description:
+synopsis:            An express-like http framework
+description:         Hexpress is an express like http framework to make it easy to write http servers. It is built on the warp http and is blazing fast. See the github readme for more information.
 homepage:            https://github.com/allonsy/hexpress
 license:             MIT
 license-file:        LICENSE
@@ -15,6 +15,10 @@ category:            Network
 build-type:          Simple
 extra-source-files:  ChangeLog.md, README.md
 cabal-version:       >=1.10
+
+Source-Repository head
+  Type:     git
+  Location: git://github.com/allonsy/hexpress.git
 
 library
   exposed-modules:     Network.Hexpress.Request,
@@ -37,5 +41,5 @@ library
                        warp >= 3.0.0 && <4.0.0,
                        mime-types >= 0.1.0.0 && <1.0.0,
                        case-insensitive >= 1.0.0 && <2.0.0
-  hs-source-dirs:      src
+
   default-language:    Haskell2010
