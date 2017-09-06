@@ -10,8 +10,11 @@ module Network.Hexpress.Server
 , staticFileCached
 , staticDir
 , run
+, runTLS
 , runEnv
+, runEnvTLS
 , runSettings
+, runTLSSettings
 ) where
 
 import Network.Hexpress.Types
@@ -28,9 +31,11 @@ import Data.Text as TXT
 import Network.HTTP.Types.URI
 import Network.Mime
 import qualified Network.Wai.Handler.Warp as WAI
+import qualified Network.Wai.Handler.WarpTLS as TLS
 import System.FilePath
 import Data.Maybe
 import Control.Exception (catch, IOException)
+import System.Environment
 
 addCustomHeader :: (SB.ByteString, SB.ByteString) -> Server ()
 addCustomHeader (name, contents) = addHeader (CI.mk name, contents)
@@ -106,17 +111,36 @@ notFound _ = do
   setStatus status404
   end
 
+-- runs with Server's settings
 run :: Int -> Server () -> IO ()
 run port srv = do
   app <- serverToApp srv
   WAI.run port app
+
+runTLS :: Int -> TLS.TLSSettings -> Server () -> IO ()
+runTLS port settings srv = do
+  app <- serverToApp srv
+  TLS.runTLS settings WAI.defaultSettings app
 
 runEnv :: Int -> Server () -> IO ()
 runEnv port srv = do
   app <- serverToApp srv
   WAI.runEnv port app
 
+runEnvTLS :: Int -> TLS.TLSSettings -> Server () -> IO ()
+runEnvTLS port settings srv = do
+  pnumMaybe <- lookupEnv "PORT"
+  case pnumMaybe of Nothing         -> runTLS port settings srv
+                    Just pnumString ->
+                      (case reads pnumString of [(pnum, "")] -> runTLS pnum settings srv
+                                                _            -> runTLS port settings srv)
+
 runSettings :: WAI.Settings -> Server () -> IO ()
 runSettings settings srv = do
   app <- serverToApp srv
   WAI.runSettings settings app
+
+runTLSSettings :: TLS.TLSSettings -> WAI.Settings -> Server () -> IO ()
+runTLSSettings tlsSettings srvSettings srv = do
+  app <- serverToApp srv
+  TLS.runTLS tlsSettings srvSettings app

@@ -39,6 +39,7 @@ library
                        vault >= 0.3.0.0 && <1.0.0,
                        text >= 1.0.0 && <2.0.0,
                        warp >= 3.0.0 && <4.0.0,
+                       warp-tls >= 3.0.0 && <4.0.0,
                        mime-types >= 0.1.0.0 && <1.0.0,
                        case-insensitive >= 1.0.0 && <2.0.0
 

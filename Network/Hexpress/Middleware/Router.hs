@@ -1,7 +1,9 @@
 module Network.Hexpress.Middleware.Router (
 Method(..)
 , router
+, routerWithErrors
 , standaloneRouter
+, standaloneRouterWithErrors
 ) where
 
 import qualified Data.ByteString.Char8 as SB
@@ -11,6 +13,8 @@ import Network.Hexpress.Request
 import Network.Hexpress.Server
 import Network.HTTP.Types.URI
 import Network.HTTP.Types.Status
+
+data RouteError = NotFound | BadMethod
 
 data Method = GET
   | HEAD
@@ -101,22 +105,29 @@ findLongest largest ls (rt@(m,x,fn):xs)
   | length x == largest = findLongest largest (rt:ls) xs
   | otherwise = findLongest largest ls xs
 
-router :: [(Method, String, a -> Server b)] -> (a -> Server b)
-router rts arg = routerHelper where
+routerWithErrors :: [(Method, String, a -> Server b)] -> (RouteError -> a -> Server b) -> (a -> Server b)
+routerWithErrors rts errorFunc arg = routerHelper where
   preprocessed = map (\(m, str, fn) -> (m, stringToPath str, fn)) rts
   routerHelper = do
     path <- getPath
     let matches = filter (isMatch path) preprocessed
-    if isEmpty matches then notFound arg
+    if isEmpty matches then (errorFunc NotFound) arg
     else do
       meth <- getMethod
       let targetMeth = byteStringToMethod meth
       let methMatches = filter (isMethodMatch targetMeth) matches
-      if isEmpty methMatches then notAllowed arg
+      if isEmpty methMatches then (errorFunc BadMethod) arg
       else do
         let (_, _, fn) = findLongest (-1) [] methMatches
         fn arg
 
+router :: [(Method, String, a -> Server b)] -> (a -> Server b)
+router rts = routerWithErrors rts defaultErrorHandler
+
+
+defaultErrorHandler :: RouteError -> (a -> Server b)
+defaultErrorHandler NotFound = notFound
+defaultErrorHandler BadMethod = notAllowed
 
 notFound :: a -> Server b
 notFound _ = do
@@ -128,5 +139,8 @@ notAllowed _ = do
   setStatus status405
   end
 
+standaloneRouterWithErrors :: [(Method, String, Server a)] -> (RouteError -> Server a) -> Server a
+standaloneRouterWithErrors rts errorFunc = (routerWithErrors ( map (\(meth, rt, handler) -> (meth, rt, \() -> handler)) rts) (\re _ -> errorFunc re) ) ()
+
 standaloneRouter :: [(Method, String, Server a)] -> Server a
-standaloneRouter rts = (router $ map (\(meth, rt, handler) -> (meth, rt, \() -> handler)) rts) ()
+standaloneRouter rts = standaloneRouterWithErrors rts (\re -> defaultErrorHandler re ())

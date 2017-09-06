@@ -10,8 +10,7 @@ sendHello = sendString "hello, World!"
 
 routes :: [(Method, String, Server ())]
 routes = [
-  (GET, "/", sendHello),
-  (GET, "/static/*", staticDir "/static/" ".")
+  (GET, "/", sendHello)
   ]
 
 main :: IO ()
