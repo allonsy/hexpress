@@ -75,7 +75,7 @@ staticFile fname mime = do
   setStatus status200
   contents <- liftIO $ catch (LB.readFile fname >>= (\cont -> return (Just cont))) handleFileError
   case contents of Nothing       -> notFound ()
-                   Just contents -> sendByteString contents
+                   Just fcontents -> sendByteString fcontents
 
 staticFileCached :: String -> SB.ByteString -> IO (Server ())
 staticFileCached fname mime = do
@@ -87,7 +87,7 @@ staticFileCached fname mime = do
 
 getfname :: [TXT.Text] -> [TXT.Text] -> Maybe [TXT.Text]
 getfname [] path = Just path
-getfname (x:xs) [] = Nothing
+getfname (_:_) [] = Nothing
 getfname (x:xs) (y:ys)
   | xs == [] && x == TXT.empty = Just (y:ys)
   | x == y = getfname xs ys
@@ -119,8 +119,9 @@ run port srv = do
 
 runTLS :: Int -> TLS.TLSSettings -> Server () -> IO ()
 runTLS port settings srv = do
+  let srvSettings = WAI.setPort port WAI.defaultSettings
   app <- serverToApp srv
-  TLS.runTLS settings WAI.defaultSettings app
+  TLS.runTLS settings srvSettings app
 
 runEnv :: Int -> Server () -> IO ()
 runEnv port srv = do

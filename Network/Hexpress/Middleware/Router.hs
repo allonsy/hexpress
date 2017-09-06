@@ -27,27 +27,17 @@ data Method = GET
   | PATCH
   deriving (Eq)
 
-methodToString :: Method -> String
-methodToString GET = "GET"
-methodToString POST = "POST"
-methodToString PUT = "PUT"
-methodToString PATCH = "PATCH"
-methodToString DELETE = "DELETE"
-methodToString HEAD = "HEAD"
-methodToString CONNECT = "CONNECT"
-methodToString OPTIONS = "OPTIONS"
-methodToString TRACE = "TRACE"
-
-stringToMethod :: String -> Method
-stringToMethod "GET" = GET
-stringToMethod "POST" = POST
-stringToMethod "PUT" = PUT
-stringToMethod "PATCH" = PATCH
-stringToMethod "DELETE" = DELETE
-stringToMethod "HEAD" = HEAD
-stringToMethod "CONNECT" = CONNECT
-stringToMethod "OPTIONS" = OPTIONS
-stringToMethod "TRACE" = TRACE
+stringToMethod :: String -> Maybe Method
+stringToMethod "GET" = Just GET
+stringToMethod "POST" = Just POST
+stringToMethod "PUT" = Just PUT
+stringToMethod "PATCH" = Just PATCH
+stringToMethod "DELETE" = Just DELETE
+stringToMethod "HEAD" = Just HEAD
+stringToMethod "CONNECT" = Just CONNECT
+stringToMethod "OPTIONS" = Just OPTIONS
+stringToMethod "TRACE" = Just TRACE
+stringToMethod _ = Nothing
 
 emptyText :: TXT.Text
 emptyText = TXT.pack ""
@@ -58,7 +48,7 @@ starText = TXT.pack "*"
 isColon :: TXT.Text -> Bool
 isColon str = TXT.head str == ':'
 
-byteStringToMethod :: SB.ByteString -> Method
+byteStringToMethod :: SB.ByteString -> Maybe Method
 byteStringToMethod bs = stringToMethod $ SB.unpack bs
 
 stringToPath :: String -> [TXT.Text]
@@ -66,17 +56,14 @@ stringToPath str = decodePathSegments $ SB.pack str
 
 type Route a b = (Method, [TXT.Text], (a -> Server b))
 
-extractRtPath :: Route a b -> [TXT.Text]
-extractRtPath (_, p, _) = p
-
 isEmpty :: [a] -> Bool
 isEmpty [] = True
 isEmpty _ = False
 
 isMatch :: [TXT.Text] -> Route a b -> Bool
 isMatch [] (_, [], _) = True
-isMatch [] (_,(x:xs),_) = False
-isMatch (y:ys) (_, [], _) = False
+isMatch [] (_,(_:_),_) = False
+isMatch (_:_) (_, [], _) = False
 isMatch (y:ys) (m,(x:xs),fn)
   | x == emptyText || x == starText = True
   | isColon x = isMatch ys (m,xs,fn)
@@ -88,8 +75,9 @@ isMethodMatch targetMeth (meth, _, _) = meth == targetMeth
 
 -- assumes non empty
 getLast :: [a] -> a
+getLast [] = error "Found empty list (This is a bug, you probably want to report this)"
 getLast [x] = x
-getLast (x:xs) = getLast xs
+getLast (_:xs) = getLast xs
 
 isExact :: Route a b -> Bool
 isExact (_, [], _) = True
@@ -98,8 +86,8 @@ isExact (m, (x:xs), fn)
   | otherwise = isExact (m, xs, fn)
 
 findLongest :: Int -> [Route a b] -> [Route a b] -> Route a b
-findLongest largest ls [] = getLast ls
-findLongest largest ls (rt@(m,x,fn):xs)
+findLongest _ ls [] = getLast ls
+findLongest largest ls (rt@(_,x,_):xs)
   | isExact rt = rt
   | length x > largest = findLongest (length x) [rt] xs
   | length x == largest = findLongest largest (rt:ls) xs
@@ -114,12 +102,14 @@ routerWithErrors rts errorFunc arg = routerHelper where
     if isEmpty matches then (errorFunc NotFound) arg
     else do
       meth <- getMethod
-      let targetMeth = byteStringToMethod meth
-      let methMatches = filter (isMethodMatch targetMeth) matches
-      if isEmpty methMatches then (errorFunc BadMethod) arg
-      else do
-        let (_, _, fn) = findLongest (-1) [] methMatches
-        fn arg
+      case byteStringToMethod meth of
+        Nothing         -> errorFunc BadMethod arg
+        Just targetMeth -> do
+          let methMatches = filter (isMethodMatch targetMeth) matches
+          if isEmpty methMatches then (errorFunc BadMethod) arg
+          else do
+            let (_, _, fn) = findLongest (-1) [] methMatches
+            fn arg
 
 router :: [(Method, String, a -> Server b)] -> (a -> Server b)
 router rts = routerWithErrors rts defaultErrorHandler

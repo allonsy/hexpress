@@ -21,6 +21,7 @@ Source-Repository head
   Location: git://github.com/allonsy/hexpress.git
 
 library
+  ghc-options:         -Wall
   exposed-modules:     Network.Hexpress.Request,
                        Network.Hexpress.Server,
                        Network.Hexpress.Types,

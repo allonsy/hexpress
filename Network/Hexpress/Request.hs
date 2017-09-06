@@ -6,7 +6,6 @@ import Network.Hexpress.Types
 import Data.Text
 import Data.Vault.Lazy
 import Data.ByteString.Lazy.Char8 as LB
-import Data.ByteString.Char8 as SB
 import Data.Aeson as Aeson
 
 getQueryString :: Server Query
