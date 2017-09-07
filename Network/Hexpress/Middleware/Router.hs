@@ -1,9 +1,17 @@
+{-|
+Module : Network.Hexpress.Middleware.Router
+
+Classic Middleware Router
+-}
+
 module Network.Hexpress.Middleware.Router (
 Method(..)
+, RouteError(..)
 , router
 , routerWithErrors
 , standaloneRouter
 , standaloneRouterWithErrors
+, stringToMethod
 ) where
 
 import qualified Data.ByteString.Char8 as SB
@@ -14,8 +22,11 @@ import Network.Hexpress.Server
 import Network.HTTP.Types.URI
 import Network.HTTP.Types.Status
 
-data RouteError = NotFound | BadMethod
+-- | Type to explain router errors.
+data RouteError = NotFound -- ^ Designates a 404 type error where the path in the request doesn't match any given handler
+  | BadMethod -- ^ Designates a 405 type error where a handler matches the path but no handler matches the method of the request.
 
+-- | A data type to represent the possible HTTP methods.
 data Method = GET
   | HEAD
   | POST
@@ -27,6 +38,11 @@ data Method = GET
   | PATCH
   deriving (Eq)
 
+-- | converts the string of each method to the method datatype
+-- the string must be in all caps e.g. @GET@ goes to 'GET'
+-- It is not recommended to use this function to construct 'Method' types, just use the actual data constructors instead.
+-- Use this function only if you need to convert runtime strings to the correct method.
+-- If the passed in string doesn't match a known method, 'Nothing' is returned. Otherwise, if a match is found, the method is returned wrapped in a 'Just'.
 stringToMethod :: String -> Maybe Method
 stringToMethod "GET" = Just GET
 stringToMethod "POST" = Just POST
@@ -93,6 +109,7 @@ findLongest largest ls (rt@(_,x,_):xs)
   | length x == largest = findLongest largest (rt:ls) xs
   | otherwise = findLongest largest ls xs
 
+-- | same as 'router' except you can provide your own error handler instead of using the default one.
 routerWithErrors :: [(Method, String, a -> Server b)] -> (RouteError -> a -> Server b) -> (a -> Server b)
 routerWithErrors rts errorFunc arg = routerHelper where
   preprocessed = map (\(m, str, fn) -> (m, stringToPath str, fn)) rts
@@ -111,6 +128,13 @@ routerWithErrors rts errorFunc arg = routerHelper where
             let (_, _, fn) = findLongest (-1) [] methMatches
             fn arg
 
+-- | takes in a list of triples:
+--
+-- > (Method, String, a -> Server b)
+--
+-- This triple repesents a route where if the method and path (the String) match the path and method of the incoming request, the corresponding Server handler is fired.
+-- See the description of this module for more in depth examples.
+-- If a match isn't found then a default error handler is fired which sends a 404 or 405 (depending on the case) and closes the connection.
 router :: [(Method, String, a -> Server b)] -> (a -> Server b)
 router rts = routerWithErrors rts defaultErrorHandler
 
@@ -129,8 +153,10 @@ notAllowed _ = do
   setStatus status405
   end
 
+-- | same as 'standaloneRouter' except with custom error handlers. 
 standaloneRouterWithErrors :: [(Method, String, Server a)] -> (RouteError -> Server a) -> Server a
 standaloneRouterWithErrors rts errorFunc = (routerWithErrors ( map (\(meth, rt, handler) -> (meth, rt, \() -> handler)) rts) (\re _ -> errorFunc re) ) ()
 
+-- | similar to 'router' except each handler doesn't need an incoming argument.
 standaloneRouter :: [(Method, String, Server a)] -> Server a
 standaloneRouter rts = standaloneRouterWithErrors rts (\re -> defaultErrorHandler re ())
