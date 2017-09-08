@@ -8,12 +8,7 @@ import Network.Hexpress.Middleware.Router
 sendHello :: Server ()
 sendHello = sendString "hello, World!"
 
-routes :: [(Method, String, Server ())]
-routes = [
-  (GET, "/", sendHello)
-  ]
-
 main :: IO ()
 main = do
-  let app = standaloneRouter routes
+  let app = sendHello
   run 3000 app
