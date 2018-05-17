@@ -20,4 +20,5 @@ cabal.project.local
 .HTF/
 .ghc.environment.*
 hello
+count
 .DS_Store

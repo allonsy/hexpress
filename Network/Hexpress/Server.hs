@@ -54,38 +54,38 @@ import System.Environment
 
 
 -- | Functionally the same as 'Network.Hexpress.Types.AddHeader' except with more common types.
-addCustomHeader :: (SB.ByteString, SB.ByteString) -> Server ()
+addCustomHeader :: (SB.ByteString, SB.ByteString) -> Server s ()
 addCustomHeader (name, contents) = addHeader (CI.mk name, contents)
 
 -- | Set the mime type to be sent. The default is "application/octet-stream"
-setMimeType :: SB.ByteString -> Server ()
+setMimeType :: SB.ByteString -> Server s ()
 setMimeType mtype = do
   addHeader (hContentType, mtype)
 
 -- | 'sendJSONLiteral' sends a 'Aeson.Value' to the client. The mime type is automatically set.
-sendJSONLiteral :: Aeson.Value -> Server ()
+sendJSONLiteral :: Aeson.Value -> Server s ()
 sendJSONLiteral = sendJSON
 
 -- | If you have an object that is an instance of the 'ToJSON' class, you can send it
 -- directly without having to convert it first. The mime type is automatically set for you.
-sendJSON :: ToJSON a => a -> Server ()
+sendJSON :: ToJSON a => a -> Server s ()
 sendJSON obj = do
   setMimeType (SB.pack "application/json")
   setStatus status200
   sendByteString (Aeson.encode obj)
 
 -- | Send a string literal. No mime type is set
-sendString :: String -> Server ()
+sendString :: String -> Server s ()
 sendString str = do
   sendByteString $ LB.pack str
 
 -- | This will end all communication with the client. All communication that was sent before this call will still be sent.
 -- However, any 'Server' functions or Middleware following this will not be executed.
-end :: Server a
+end :: Server s a
 end = MaybeT (return Nothing)
 
 -- | Sends a string to standard output for debugging.
-debugLog :: String -> Server ()
+debugLog :: String -> Server s ()
 debugLog str = liftIO $ Prelude.putStrLn str
 
 stringToPath :: String -> [TXT.Text]
@@ -96,7 +96,7 @@ handleFileError _ = return Nothing
 
 -- | given a filename and a mimetype for the file, a server will be generated that will serve the file contents to the client.
 -- This handler will read in the file everytime its endpoint is hit by a client.
-staticFile :: String -> SB.ByteString -> Server ()
+staticFile :: String -> SB.ByteString -> Server s ()
 staticFile fname mime = do
   setMimeType mime
   setStatus status200
@@ -109,7 +109,7 @@ staticFile fname mime = do
 --
 -- It is important that this function is called in some top level IO function (like main or something similar (DO NOT CALL 'performIO' ON THIS AS IT WILL NOT CACHE PROPERLY)), then, extract the inner server and use it in your server chain.
 -- The file caching happens whenever this function is called. Therefore, call this function whenever you want the file to be read in.
-staticFileCached :: String -> SB.ByteString -> IO (Server ())
+staticFileCached :: String -> SB.ByteString -> IO (Server s ())
 staticFileCached fname mime = do
   contents <- LB.readFile fname
   let serv = addHeader (hContentType, mime) >>
@@ -134,7 +134,7 @@ getfname (x:xs) (y:ys)
 -- will only pay attention to http requests with path 'static/...' and extract the file name and find it in the './static/files' directory.
 -- For example, an http request to '/static/hello/file.txt' will serve './static/files/hello/file.txt'
 -- Files that aren't found will return 404.
-staticDir :: String -> String -> Server ()
+staticDir :: String -> String -> Server s ()
 staticDir prefix location = staticDirHelper where
   prefixPath = stringToPath prefix
   locationPath = stringToPath location
@@ -147,48 +147,48 @@ staticDir prefix location = staticDirHelper where
       let mtype = defaultMimeLookup (TXT.pack fname)
       staticFile fname mtype
 
-notFound :: a -> Server b
+notFound :: a -> Server s b
 notFound _ = do
   setStatus status404
   end
 
 -- | Runs with 'WAI.defaultSettings' with the port provided.
-run :: Int -> Server () -> IO ()
-run port srv = do
-  app <- serverToApp srv
+run :: Int -> Server s () -> s -> IO ()
+run port srv initialUserState = do
+  app <- serverToApp srv initialUserState
   WAI.run port app
 
 -- | Runs with TLS enabled according to the provided 'TLS.TLSSettings'. The server listens on the provided port.
-runTLS :: Int -> TLS.TLSSettings -> Server () -> IO ()
-runTLS port settings srv = do
+runTLS :: Int -> TLS.TLSSettings -> Server s () -> s -> IO ()
+runTLS port settings srv initialUserState = do
   let srvSettings = WAI.setPort port WAI.defaultSettings
-  app <- serverToApp srv
+  app <- serverToApp srv initialUserState
   TLS.runTLS settings srvSettings app
 
 -- | Runs on the port specified by the 'PORT' environment variable.
 -- If the variable is not set or not an integer, the provided Int is used as the port.
-runEnv :: Int -> Server () -> IO ()
-runEnv port srv = do
-  app <- serverToApp srv
+runEnv :: Int -> Server s () -> s -> IO ()
+runEnv port srv initialUserState = do
+  app <- serverToApp srv initialUserState
   WAI.runEnv port app
 
 -- | Same as 'runEnv' except with TLS settings.
-runEnvTLS :: Int -> TLS.TLSSettings -> Server () -> IO ()
-runEnvTLS port settings srv = do
+runEnvTLS :: Int -> TLS.TLSSettings -> Server s () -> s -> IO ()
+runEnvTLS port settings srv initialUserState = do
   pnumMaybe <- lookupEnv "PORT"
-  case pnumMaybe of Nothing         -> runTLS port settings srv
+  case pnumMaybe of Nothing         -> runTLS port settings srv initialUserState
                     Just pnumString ->
-                      (case reads pnumString of [(pnum, "")] -> runTLS pnum settings srv
-                                                _            -> runTLS port settings srv)
+                      (case reads pnumString of [(pnum, "")] -> runTLS pnum settings srv initialUserState
+                                                _            -> runTLS port settings srv initialUserState)
 
 -- | Runs the given server according to the provided 'Network.Wai.Handler.Settings'.
-runSettings :: WAI.Settings -> Server () -> IO ()
-runSettings settings srv = do
-  app <- serverToApp srv
+runSettings :: WAI.Settings -> Server s () -> s -> IO ()
+runSettings settings srv initialUserState = do
+  app <- serverToApp srv initialUserState
   WAI.runSettings settings app
 
 -- | Same as 'runSettings' but with additional TLS Settings.
-runTLSSettings :: TLS.TLSSettings -> WAI.Settings -> Server () -> IO ()
-runTLSSettings tlsSettings srvSettings srv = do
-  app <- serverToApp srv
+runTLSSettings :: TLS.TLSSettings -> WAI.Settings -> Server s () -> s -> IO ()
+runTLSSettings tlsSettings srvSettings srv initialUserState = do
+  app <- serverToApp srv initialUserState
   TLS.runTLS tlsSettings srvSettings app
