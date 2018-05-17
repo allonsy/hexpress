@@ -153,12 +153,14 @@ notFound _ = do
   end
 
 -- | Runs with 'WAI.defaultSettings' with the port provided.
+-- | Provide the initial user state as the last argument (or () if a stateless server)
 run :: Int -> Server s () -> s -> IO ()
 run port srv initialUserState = do
   app <- serverToApp srv initialUserState
   WAI.run port app
 
 -- | Runs with TLS enabled according to the provided 'TLS.TLSSettings'. The server listens on the provided port.
+-- | Provide the initial user state as the last argument (or () if a stateless server)
 runTLS :: Int -> TLS.TLSSettings -> Server s () -> s -> IO ()
 runTLS port settings srv initialUserState = do
   let srvSettings = WAI.setPort port WAI.defaultSettings
@@ -167,12 +169,14 @@ runTLS port settings srv initialUserState = do
 
 -- | Runs on the port specified by the 'PORT' environment variable.
 -- If the variable is not set or not an integer, the provided Int is used as the port.
+-- | Provide the initial user state as the last argument (or () if a stateless server)
 runEnv :: Int -> Server s () -> s -> IO ()
 runEnv port srv initialUserState = do
   app <- serverToApp srv initialUserState
   WAI.runEnv port app
 
 -- | Same as 'runEnv' except with TLS settings.
+-- | Provide the initial user state as the last argument (or () if a stateless server)
 runEnvTLS :: Int -> TLS.TLSSettings -> Server s () -> s -> IO ()
 runEnvTLS port settings srv initialUserState = do
   pnumMaybe <- lookupEnv "PORT"
@@ -182,12 +186,14 @@ runEnvTLS port settings srv initialUserState = do
                                                 _            -> runTLS port settings srv initialUserState)
 
 -- | Runs the given server according to the provided 'Network.Wai.Handler.Settings'.
+-- | Provide the initial user state as the last argument (or () if a stateless server)
 runSettings :: WAI.Settings -> Server s () -> s -> IO ()
 runSettings settings srv initialUserState = do
   app <- serverToApp srv initialUserState
   WAI.runSettings settings app
 
 -- | Same as 'runSettings' but with additional TLS Settings.
+-- | Provide the initial user state as the last argument (or () if a stateless server)
 runTLSSettings :: TLS.TLSSettings -> WAI.Settings -> Server s () -> s -> IO ()
 runTLSSettings tlsSettings srvSettings srv initialUserState = do
   app <- serverToApp srv initialUserState
